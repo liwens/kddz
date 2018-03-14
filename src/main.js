@@ -8,7 +8,7 @@ import './assets/font/iconfont'
 import VueLazyload from 'vue-lazyload';
 
 Vue.use(VueLazyload, {
-  loading: ''
+  loading: require('./assets/loading.png')
 })
 
 Vue.config.productionTip = false;

@@ -1,16 +1,21 @@
 <template>
-  <section id="conatiner">
+  <section id="container">
     <div class="head">
       <img :src="data.userAvatar" alt="头像">
       <div class="userName">{{data.userName}}</div>
     </div>
     <article>
       <p v-if="data.topicContent">{{data.topicContent}}</p>
-      <p v-if="data.topicPic"><img :src="data.topicPic" alt=""></p>
-      <p v-if="data.topicVedio">
-        <vedio :src="data.topicVedio"></vedio>
+      <p v-if="data.topicPic && !isPlay && !data.topicVedio" >
+        <img v-lazy="data.topicPic" alt="">
       </p>
+      <!--视频-->
+      <p v-if="data.topicVedio" class="videoContainer">
+        <video :src="data.topicVedio" preload="auto" @play="onPlay" controls></video>
+      </p>
+
     </article>
+    <!--互动按钮-->
     <section class="interaction">
       <div @click="dig">
           <svg class="icon" aria-hidden="true" ref="svgDig" :class="{animateNod: isDig}">
@@ -27,6 +32,8 @@
         <span class="count" ref="buryCount"  :class="{animateCount: isBury}">{{data.buryCount}}</span>
       </div>
     </section>
+
+    <!--下一条-->
     <section class="bottom">
       <div class="next" @click='next'>下一条</div>
     </section>
@@ -35,6 +42,9 @@
     <div class='loading' v-if='isLoading'>
       <vue-loading type="bars" color="#d9544e" :size="{ width: '50px', height: '50px' }"></vue-loading>
    </div>
+
+    <!--ad-->
+    <div id="ws-zl-dybanner263"></div>
   </section>
 </template>
 
@@ -46,7 +56,7 @@
         vueLoading:  () => import('vue-loading-template')
       },
       data() {
-        return {
+        return{
           num: Math.floor(Math.random() * 80000),      //随机数
           pageSize: 1,      //列表，每次加载数据数量
           data: '',         //数据
@@ -54,18 +64,70 @@
           isBury: false,    //判断有没有踩过
           isIntered: false,  //判断有没有点赞/踩
           nextId: 0,        //下一条的id
-          isLoading: false    //数据是否请求中
+          isLoading: false,    //数据是否请求中
+          isPlay: false
+        }
+      },
+      watch: {
+        /**
+         * 点击下一条时，将id赋值给hash。
+         * */
+        nextId: function (newvalue, oldvalue) {
+          window.location.hash = newvalue + 1;
         }
       },
       mounted() {
         /**
-         * 请求数据
+         * 判断是否有hash，如果有则请求hash中的id
          * */
-        this.$nextTick(()=> {
-          this._getList();
-        })
+        if(window.location.hash) {
+          this.$nextTick(()=> {
+            this.hasHash()
+          })
+        }else{
+          this.$nextTick(()=> {
+            this._getList();
+          })
+        }
+
       },
       methods: {
+        appendAd() {
+          let adDom = document.createElement('aside');
+          adDom.id='ws-zl-dybanner263'
+          document.getElementById('container').appendChild(adDom);
+          let adjs = document.createElement('script');
+          adjs.src = 'http://nads.wuaiso.com/newswap/wap/js/asyunion.js';
+          adjs.id='ad';
+
+          //移除上一个广告js
+          this.removead();
+          document.body.appendChild(adjs);
+
+        },
+
+        /**
+         * 移除页面多余的adjs
+         * */
+        removead() {
+          let adjs = document.getElementById('ad');
+
+          if(adjs) {
+            adjs.parentNode.removeChild(adjs);
+          }
+          let adDom = document.getElementById('ws-zl-dybanner263');
+          if(adDom) {
+            adDom.parentNode.removeChild(adDom);
+          }
+        },
+
+        /**
+         * 播放视频时，隐藏预览图片
+         * */
+        onPlay() {
+          this.isPlay = true;
+        },
+
         /**
          * 获取数据，再mounted处调用
          * */
@@ -76,7 +138,8 @@
           };
           getList(parmes).then((res) => {
             this.data = res.returnValue.list[0];
-            this.nextId = res.returnValue.prePage
+            this.nextId = res.returnValue.prePage;
+
           })
         },
 
@@ -103,6 +166,28 @@
         },
 
         /**
+         * 有hash时请求的逻辑。
+         * */
+        hasHash() {
+          let params = {
+            id: window.location.hash.replace("#","")
+          };
+          getNext(params).then((res)=> {
+            this.data = res.returnValue;
+            this.nextId =  res.returnValue.id;
+
+            this.isDig =  false;    //判断有没有点赞
+            this.isBury =  false;    //判断有没有踩过
+            this.isIntered = false;  //判断是否互动过
+            this.isLoading = false;  //隐藏加载动画
+            this.isPlay = false;     //视频播放时，隐藏预览图
+
+            // this.appendAd();      //添加广告
+
+            this.setScrollTop();  //恢复滚动条位置
+          })
+        },
+        /**
           下一条，加载数据
         */
         next() {
@@ -119,10 +204,23 @@
 
             this.isDig =  false;    //判断有没有点赞
             this.isBury =  false;    //判断有没有踩过
-            this.isIntered = false;
+            this.isIntered = false;  //判断是否互动过
             this.isLoading = false;  //隐藏加载动画
+            this.isPlay = false;     //视频播放时，隐藏预览图
+
+            // this.appendAd();      //添加广告
+
+            this.setScrollTop();  //恢复滚动条位置
           })
+        },
+        /**
+         * 恢复滚动条顶置位置,
+         * */
+        setScrollTop() {
+          document.body.scrollTop = 0;
+          document.documentElement.scrollTop = 0;
         }
+
       },
 
     }
@@ -137,7 +235,7 @@
 
 
   }
-  #conatiner{
+  #container{
     padding: 10px;
     box-shadow:0 15px 10px -10px rgba(0,0,0,.22) inset;
     /* 头部 */
@@ -161,6 +259,9 @@
       p{
         padding: 5px 0;
         img{
+          width: 100%;
+        }
+        video{
           width: 100%;
         }
       }
@@ -219,17 +320,35 @@
       user-select: none;
       transition: all .4s;
 
-      &::hover{
-        background-color: #eee;
+      &:hover{
+
       }
-
+      &:active{
+        box-shadow: 0 0 25px 0px rgba(0,0,0,0.22) inset;
+        &:after{
+           width: 50px;
+         }
+       }
       .next{
-
+        position: relative;
+        &:after {
+          content: ' ';
+          border: 1px solid #eee;
+           width: 40px;
+           height: 1px;
+           background-color: #eee;
+           border-radius: 100%;
+          position: absolute * 50% 6px;
+          transform: translateX(-50%);
+         }
       }
     }
-
-
+    #ws-zl-dybanner263{
+      margin-bottom: 40px;
+    }
   }
+  /*container 结束*/
+
   .loading{
     position: absolute 50% * * 50%;
     transform: translate(-50%, -50%);
