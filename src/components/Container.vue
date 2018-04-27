@@ -49,7 +49,7 @@
 </template>
 
 <script>
-import { getList, getNext } from '../api/getContent'
+import { getTotal, getContent } from '../api/getContent'
 export default {
   name: "container",
   components: {
@@ -58,7 +58,7 @@ export default {
   },
   data() {
     return {
-      num: Math.floor(Math.random() * 100000), //随机数
+      id: 0,
       pageSize: 1, //列表，每次加载数据数量
       data: '', //数据
       isDig: false, //判断有没有点赞
@@ -66,7 +66,8 @@ export default {
       isIntered: false, //判断有没有点赞/踩
       nextId: 0, //下一条的id
       isLoading: false, //数据是否请求中
-      isPlay: false
+      isPlay: false,
+      total: 0 //总数
     }
   },
   watch: {
@@ -81,18 +82,68 @@ export default {
     /**
      * 判断是否有hash，如果有则请求hash中的id
      * */
+    // if (window.location.hash) {
+    //   this.$nextTick(() => {
+    //     this.hasHash()
+    //   })
+    // } else {
+    //   this.$nextTick(() => {
+    //     this._getList();
+    //   })
+    // }
+    // this._getContent();
     if (window.location.hash) {
-      this.$nextTick(() => {
-        this.hasHash()
-      })
+      // this.hasHash()
+      let id = this.hash();
+      this._getContent(id);
+      return;
     } else {
       this.$nextTick(() => {
-        this._getList();
+        this._getTotal().then(() => {
+          console.log(this.id);
+          this._getContent(this.id)
+        })
       })
     }
-
   },
   methods: {
+    //拿到列表总数量
+    _getTotal() {
+      // this.$nextTick(() => {
+      let params = {
+        pageSize: 1,
+        pageNum: 1
+      };
+      return getTotal(params).then((res) => {
+        this.total = res.returnValue.total; //拿到数据总数
+        this.id = Math.floor(Math.random() * this.total + 1) //根据总数计算随机数
+        // sessionStorage.setItem('comeInflag', 'comeIn') //用于判断是否第一次进入
+        return Promise.resolve();
+      })
+      // })
+    },
+    _getContent(id) {
+      id = id == 1 ? Math.floor(Math.random() * 50000 + 1000) : id; //
+      let params = {
+        id
+      }
+      console.log(params);
+      // console.log(getContent());
+      this.$nextTick(() => {
+        getContent(params).then((res) => {
+          this.data = res.returnValue; //赋值进行模板渲染
+          window.location.hash = res.returnValue.id; //记录hash
+          this.setScrollTop()
+        })
+
+      })
+    },
+    hash() {
+      return window.location.hash.replace("#", "")
+    },
+    next() {
+      location.reload();
+    },
     //ad @2
     //  appendAd() {
     //    let adDom = document.createElement('aside');
@@ -133,16 +184,16 @@ export default {
     /**
      * 获取数据，再mounted处调用
      * */
-    _getList() {
-      let parmes = {
-        pageNum: this.num,
-        pageSize: this.pageSize
-      };
-      getList(parmes).then((res) => {
-        this.data = res.returnValue.list[0];
-        this.nextId = res.returnValue.prePage;
-      })
-    },
+    // _getList() {
+    //   let parmes = {
+    //     pageNum: this.num,
+    //     pageSize: this.pageSize
+    //   };
+    //   getList(parmes).then((res) => {
+    //     this.data = res.returnValue.list[0];
+    //     this.nextId = res.returnValue.prePage;
+    //   })
+    // },
 
     /**
      * 点赞喜欢的逻辑
@@ -169,54 +220,54 @@ export default {
     /**
      * 有hash时请求的逻辑。
      * */
-    hasHash() {
-      let params = {
-        id: window.location.hash.replace("#", "")
-      };
-      getNext(params).then((res) => {
-        this.data = res.returnValue;
-        this.nextId = res.returnValue.id;
-        // window.location.hash = res.returnValue.id;
-
-        this.isDig = false; //判断有没有点赞
-        this.isBury = false; //判断有没有踩过
-        this.isIntered = false; //判断是否互动过
-        this.isLoading = false; //隐藏加载动画
-        this.isPlay = false; //视频播放时，隐藏预览图
-
-        //      this.appendAd(); //添加广告 ad@4
-
-        this.setScrollTop(); //恢复滚动条位置
-      })
-    },
+    // hasHash() {
+    //   let params = {
+    //     id: window.location.hash.replace("#", "")
+    //   };
+    //   getNext(params).then((res) => {
+    //     this.data = res.returnValue;
+    //     this.nextId = res.returnValue.id;
+    //     window.location.hash = res.returnValue.id;
+    //
+    //     this.isDig = false; //判断有没有点赞
+    //     this.isBury = false; //判断有没有踩过
+    //     this.isIntered = false; //判断是否互动过
+    //     this.isLoading = false; //隐藏加载动画
+    //     this.isPlay = false; //视频播放时，隐藏预览图
+    //
+    //     //      this.appendAd(); //添加广告 ad@4
+    //
+    //     this.setScrollTop(); //恢复滚动条位置
+    //   })
+    // },
     /**
       下一条，加载数据
     */
-    next() {
-      if (this.isLoading) return;
-
-      let params = {
-        id: this.nextId
-      }
-
-      this.isLoading = true;
-      getNext(params).then((res) => {
-        this.data = res.returnValue;
-        this.nextId = res.returnValue.id;
-        window.location.hash = res.returnValue.id;
-
-        this.isDig = false; //判断有没有点赞
-        this.isBury = false; //判断有没有踩过
-        this.isIntered = false; //判断是否互动过
-        this.isLoading = false; //隐藏加载动画
-        this.isPlay = false; //视频播放时，隐藏预览图
-
-        //         this.appendAd();      // 添加广告ad @5
-
-        this.setScrollTop(); //恢复滚动条位置
-        // location.reload();
-      })
-    },
+    // next() {
+    //   if (this.isLoading) return;
+    //
+    //   let params = {
+    //     id: this.nextId
+    //   }
+    //
+    //   this.isLoading = true;
+    //   getNext(params).then((res) => {
+    //     // this.data = res.returnValue;
+    //     // this.nextId = res.returnValue.id;
+    //     window.location.hash = res.returnValue.id;
+    //
+    //     this.isDig = false; //判断有没有点赞
+    //     this.isBury = false; //判断有没有踩过
+    //     this.isIntered = false; //判断是否互动过
+    //     this.isLoading = false; //隐藏加载动画
+    //     this.isPlay = false; //视频播放时，隐藏预览图
+    //
+    //     //         this.appendAd();      // 添加广告ad @5
+    //
+    //     this.setScrollTop(); //恢复滚动条位置
+    //     location.reload();
+    //   })
+    // },
     /**
      * 恢复滚动条顶置位置,
      * */
